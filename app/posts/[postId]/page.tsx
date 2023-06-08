@@ -1,0 +1,70 @@
+import getFormattedDate from '@/lib/getFormattedDate'
+import { getPostByName, getPostsMeta } from '@/lib/posts'
+import 'highlight.js/styles/github-dark.css'
+import Link from 'next/link'
+import { notFound } from 'next/navigation'
+
+export const revalidate = 86400
+// revalidate means prefetch
+// 0 value means on demand fetchcing -  page is always fetched by next
+// if revalidate has value for example 60, every 60 seconds the page will fetch / revalidate new updated data
+
+type Props = {
+	params: {
+		postId: string
+	}
+}
+
+export async function generateStaticParams() {
+	const posts = await getPostsMeta() // deduped!
+
+	if (!posts) return []
+
+	return posts.map((post) => ({
+		postId: post.id,
+	}))
+}
+
+export async function generateMetadata({ params: { postId } }: Props) {
+	const post = await getPostByName(`${postId}.mdx`) // deduped/deduplicate meaning it only fetch data once in the app - getPostByName() has already been done in Posts component - we only just call it here
+
+	if (!post) {
+		return {
+			title: 'Post Not Found',
+		}
+	}
+
+	return {
+		title: post.meta.title,
+	}
+}
+
+export default async function Post({ params: { postId } }: Props) {
+	const post = await getPostByName(`${postId}.mdx`) // deduped/deduplicate meaning it only fetch data once in the app - getPostByName() has already been done in Posts component - we only just call it here
+	if (!post) notFound()
+
+	const { meta, content } = post
+
+	const pubDate = getFormattedDate(meta.date)
+
+	const tags = meta.tags.map((tag, i) => (
+		<Link key={i} href={`/tags/${tag}`}>
+			{tag}
+		</Link>
+	))
+
+	return (
+		<>
+			<h2 className='text-3xl mt-4 mb-0'>{meta.title}</h2>
+			<p className='mt-0 text-sm'>{pubDate}</p>
+			<article>{content}</article>
+			<section>
+				<h3>Related:</h3>
+				<div className='flex flex-row gap-4'>{tags}</div>
+			</section>
+			<p className='mb-10'>
+				<Link href='/'>← Back to home</Link>
+			</p>
+		</>
+	)
+}
